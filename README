@@ -1,0 +1,34 @@
+# Signal Session — Presage prototype
+
+A consent-first frontend concept for structured interview sessions, optional camera preview, and question or media prompts.
+
+## Run locally
+
+Open `index.html` from a local web server (camera access requires `localhost` or HTTPS). For example, with Python installed:
+
+```powershell
+python -m http.server 8000
+```
+
+Then visit `http://localhost:8000`.
+
+## Prototype scope
+
+- The camera preview uses the browser's `getUserMedia` API after the consent checkbox is selected.
+- Camera video stays in the browser tab; this prototype does not record or upload video or save notes.
+- Pulse and breathing values and waveforms are static sample data. They are not measured by SmartSpectra.
+- Facial-expression cues are not connected; expression labels are not a sentiment or truth score.
+- Questions can be added, prompts navigated, and a local image or video selected as a stimulus.
+- The session controls only demonstrate the interface; no SDK session or recording is started.
+
+## SmartSpectra integration
+
+Presage's current SmartSpectra documentation lists Android, iOS, C++, and Node.js/Electron integrations; it does not document a standalone browser SDK. To use live SmartSpectra readings in a web experience, the frontend needs a supported host such as Electron with the Node.js SDK, or a separately implemented trusted service that owns the SDK integration. Do not expose an SDK API key in browser code.
+
+The production integration should replace the sample metrics with SDK-decoded values and their confidence/validation status. Preserve the participant's ability to consent, stop the camera, and understand what is measured and stored. Physiological measurements and facial-expression classifications cannot establish truthfulness and must not be presented as a lie-detection result.
+
+References:
+
+- [SmartSpectra SDK documentation](https://presagetech.com/docs/smartspectra-sdk)
+- [Node.js and Electron SDK guide](https://presagetech.com/docs/smartspectra-sdk/nodejs)
+- [SmartSpectra model cards and limitations](https://presagetech.com/docs/smartspectra-sdk/model-cards-and-limitations)
