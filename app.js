@@ -4,7 +4,13 @@ const cameraPlaceholder = document.querySelector("#camera-placeholder");
 const cameraButton = document.querySelector("#camera-toggle");
 const cameraStatus = document.querySelector("#camera-status");
 const cameraMessage = document.querySelector("#camera-message");
-const consentCheckbox = document.querySelector("#consent-checkbox");
+const consentDialog = document.querySelector("#consent-dialog");
+const consentAgreement = document.querySelector("#consent-agreement");
+const consentAccept = document.querySelector("#consent-accept");
+const consentStatus = document.querySelector("#consent-status");
+const consentIndicator = document.querySelector("#consent-indicator");
+const reviewConsentButton = document.querySelector("#review-consent");
+const withdrawConsentButton = document.querySelector("#withdraw-consent");
 const startButton = document.querySelector("#start-session");
 const endButton = document.querySelector("#end-session");
 const recordingLabel = document.querySelector("#recording-label");
@@ -24,6 +30,7 @@ const mediaPromptLabel = document.querySelector("#media-prompt-label");
 
 let cameraStream = null;
 let sessionActive = false;
+let consentGranted = false;
 let currentPrompt = 0;
 let mediaObjectUrl = null;
 
@@ -53,6 +60,23 @@ function updateSessionControls() {
     : '<span class="record-dot" aria-hidden="true"></span> Start session';
 }
 
+function updateConsentStatus() {
+  consentStatus.textContent = consentGranted
+    ? "Participant reviewed and agreed · can withdraw at any time"
+    : "Consent needed before camera access";
+  consentIndicator.textContent = consentGranted ? "✓" : "!";
+  consentIndicator.classList.toggle("consent-approved", consentGranted);
+  reviewConsentButton.textContent = consentGranted ? "Review consent" : "Review & consent";
+}
+
+function openConsentDialog() {
+  consentAgreement.checked = false;
+  consentAccept.disabled = true;
+  withdrawConsentButton.hidden = !consentGranted;
+  consentAccept.textContent = cameraStream ? "I understand" : "Agree & enable camera";
+  consentDialog.showModal();
+}
+
 function releaseCamera() {
   if (cameraStream) {
     cameraStream.getTracks().forEach((track) => track.stop());
@@ -68,19 +92,13 @@ function releaseCamera() {
   updateSessionControls();
 }
 
-cameraButton.addEventListener("click", async () => {
+async function requestCamera() {
   if (cameraStream) {
-    releaseCamera();
-    return;
-  }
-  if (!consentCheckbox.checked) {
-    cameraMessage.textContent = "Please confirm the participant’s informed consent before enabling the camera.";
-    consentCheckbox.focus();
-    return;
+    return true;
   }
   if (!navigator.mediaDevices?.getUserMedia) {
     cameraMessage.textContent = "Camera access requires HTTPS or localhost and a supported browser.";
-    return;
+    return false;
   }
   cameraButton.disabled = true;
   cameraMessage.textContent = "Waiting for camera permission…";
@@ -95,7 +113,9 @@ cameraButton.addEventListener("click", async () => {
     cameraButton.innerHTML = '<span class="camera-toggle-icon" aria-hidden="true">◉</span> Turn camera off';
     cameraStatus.classList.add("is-on");
     cameraStatus.innerHTML = "<span></span> Camera on";
-    cameraMessage.textContent = "Camera preview is on this device only. This prototype does not record or upload video.";
+    cameraMessage.textContent = "Live preview only. This prototype does not record, analyze, or upload video.";
+    updateSessionControls();
+    return true;
   } catch (error) {
     const messages = {
       NotAllowedError: "Camera permission was denied. Allow camera access in your browser settings to continue.",
@@ -103,26 +123,38 @@ cameraButton.addEventListener("click", async () => {
       NotReadableError: "The camera is already in use by another app. Close it and try again.",
     };
     cameraMessage.textContent = messages[error.name] ?? "Could not start the camera. Check browser permissions and try again.";
+    return false;
   } finally {
     cameraButton.disabled = false;
   }
+}
+
+cameraButton.addEventListener("click", async () => {
+  if (cameraStream) {
+    releaseCamera();
+    return;
+  }
+  if (!consentGranted) {
+    openConsentDialog();
+    return;
+  }
+  await requestCamera();
 });
 
-consentCheckbox.addEventListener("change", () => {
-  cameraMessage.textContent = consentCheckbox.checked
-    ? "Consent confirmed. Enable the camera when the participant is ready."
-    : "Ask for consent before enabling the camera.";
+reviewConsentButton.addEventListener("click", openConsentDialog);
+
+consentAgreement.addEventListener("change", () => {
+  consentAccept.disabled = !consentAgreement.checked;
 });
 
 startButton.addEventListener("click", () => {
-  if (!cameraStream) {
-    cameraMessage.textContent = "Enable the participant camera before starting a session.";
-    cameraButton.focus();
+  if (!consentGranted) {
+    openConsentDialog();
     return;
   }
-  if (!consentCheckbox.checked) {
-    cameraMessage.textContent = "Confirm informed consent before starting a session.";
-    consentCheckbox.focus();
+  if (!cameraStream) {
+    cameraMessage.textContent = "Enable the camera before starting the session.";
+    cameraButton.focus();
     return;
   }
   sessionActive = true;
@@ -133,6 +165,31 @@ endButton.addEventListener("click", () => {
   sessionActive = false;
   updateSessionControls();
   releaseCamera();
+});
+
+document.querySelector("#consent-close").addEventListener("click", () => consentDialog.close());
+document.querySelector("#consent-cancel").addEventListener("click", () => consentDialog.close());
+
+consentAccept.addEventListener("click", async () => {
+  if (!consentAgreement.checked) return;
+  consentGranted = true;
+  updateConsentStatus();
+  consentDialog.close();
+  if (cameraStream) {
+    cameraMessage.textContent = "Consent confirmed. The live preview is still on.";
+    return;
+  }
+  await requestCamera();
+});
+
+withdrawConsentButton.addEventListener("click", () => {
+  consentGranted = false;
+  sessionActive = false;
+  updateConsentStatus();
+  updateSessionControls();
+  releaseCamera();
+  cameraMessage.textContent = "Consent withdrawn. The camera is off; no video was recorded or saved.";
+  consentDialog.close();
 });
 
 document.querySelector("#add-question").addEventListener("click", () => {
@@ -216,4 +273,5 @@ window.addEventListener("beforeunload", () => {
 });
 
 updatePrompts();
+updateConsentStatus();
 updateSessionControls();

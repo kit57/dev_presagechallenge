@@ -9,12 +9,6 @@
       content="A consent-first workspace for structured interview sessions and camera-based wellness signals."
     />
     <title>Signal Session — Presage prototype</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
     <link rel="stylesheet" href="styles.css" />
     <script src="app.js" defer></script>
   </head>
@@ -47,7 +41,7 @@
           <div class="privacy-card">
             <span class="privacy-icon" aria-hidden="true">✳</span>
             <strong>People first</strong>
-            <p>Get informed consent before every recording. You’re in control of the camera.</p>
+            <p>Explain what happens before camera access. The participant can decline or stop at any time.</p>
           </div>
           <button class="profile-button" type="button" aria-label="Workspace profile">
             <span class="avatar">S</span>
@@ -121,14 +115,13 @@
                 </div>
 
                 <div id="consent-row" class="consent-row">
-                  <label class="consent-label">
-                    <input id="consent-checkbox" type="checkbox" />
-                    <span class="custom-checkbox" aria-hidden="true"></span>
-                    <span>The participant has given informed consent to camera-based signal analysis.</span>
-                  </label>
-                  <span class="consent-required">REQUIRED</span>
+                  <div class="consent-summary">
+                    <span id="consent-indicator" class="consent-indicator" aria-hidden="true">!</span>
+                    <span id="consent-status">Consent needed before camera access</span>
+                  </div>
+                  <button id="review-consent" class="review-consent-button" type="button">Review &amp; consent</button>
                 </div>
-                <p id="camera-message" class="inline-message" role="status" aria-live="polite">Ask for consent before enabling the camera.</p>
+                <p id="camera-message" class="inline-message" role="status" aria-live="polite">Camera stays off until the participant reviews and agrees to the disclosure.</p>
               </section>
 
               <section class="panel signals-panel" aria-labelledby="signals-title">
@@ -212,7 +205,7 @@
                 <div class="notes-heading"><span class="notes-icon" aria-hidden="true">✎</span><h2 id="notes-title">Session notes</h2><span class="optional-label">OPTIONAL</span></div>
                 <label class="visually-hidden" for="notes">Add private session notes</label>
                 <textarea id="notes" placeholder="Add a note or observation…" rows="3"></textarea>
-                <div class="notes-footer"><span>Saved locally in this prototype</span><span class="private-note"><span aria-hidden="true">⌑</span> Private</span></div>
+                <div class="notes-footer"><span>Not saved · cleared when you leave</span><span class="private-note"><span aria-hidden="true">⌑</span> On this page only</span></div>
               </section>
             </div>
           </div>
@@ -221,6 +214,44 @@
         </div>
       </main>
     </div>
+
+    <dialog id="consent-dialog" class="consent-dialog" aria-labelledby="consent-title" aria-describedby="consent-intro">
+      <div class="dialog-top">
+        <span class="dialog-kicker">BEFORE CAMERA ACCESS</span>
+        <button id="consent-close" class="dialog-close" type="button" aria-label="Close consent details">×</button>
+      </div>
+      <h2 id="consent-title">Camera &amp; data consent</h2>
+      <p id="consent-intro" class="consent-intro">Let the participant review this themselves. Do not agree on their behalf. The camera stays off unless they agree, and they can stop it or withdraw at any time.</p>
+      <div class="disclosure-list">
+        <section class="disclosure-item">
+          <span class="disclosure-icon camera-disclosure-icon" aria-hidden="true">◉</span>
+          <div><h3>Camera access</h3><p>Agreeing lets this page request a live, muted camera preview. No microphone is requested. The browser and operating system may show their own camera permission prompt.</p></div>
+        </section>
+        <section class="disclosure-item">
+          <span class="disclosure-icon signal-disclosure-icon" aria-hidden="true">⌁</span>
+          <div><h3>What is measured</h3><p>Nothing in this prototype. The pulse and breathing cards are sample numbers, and facial-expression analysis is not connected. No video is recorded or analyzed by this app.</p></div>
+        </section>
+        <section class="disclosure-item">
+          <span class="disclosure-icon data-disclosure-icon" aria-hidden="true">▤</span>
+          <div><h3>Storage, sharing &amp; deletion</h3><p>This page has no account, backend, analytics, or upload. Notes, prompts, and chosen media stay in this page's memory; they are not saved and are cleared when you close or reload it. Turning off the camera stops its tracks. The browser may cache the app files and retain its camera permission choice; manage permissions in browser settings. If hosted online, the host may log ordinary page requests under its own policy; that must be disclosed separately.</p></div>
+        </section>
+        <section class="disclosure-item">
+          <span class="disclosure-icon integration-disclosure-icon" aria-hidden="true">◇</span>
+          <div><h3>SDK telemetry &amp; AI</h3><p>SmartSpectra is not connected, so there is no SDK telemetry from this app. No optional AI service is used. A future SDK or AI integration would need a separate, updated disclosure and consent before it is enabled.</p></div>
+        </section>
+      </div>
+      <label class="agreement-label">
+        <input id="consent-agreement" type="checkbox" />
+        <span class="agreement-check" aria-hidden="true"></span>
+        <span>I am the participant. I have read and voluntarily agree to the live camera preview and data handling described above.</span>
+      </label>
+      <p class="consent-note">You can choose “Not now” without enabling the camera or losing access to the rest of the prototype.</p>
+      <div class="dialog-actions consent-actions">
+        <button id="withdraw-consent" class="withdraw-button" type="button" hidden>Withdraw consent</button>
+        <button id="consent-cancel" class="button button-outline" type="button">Not now</button>
+        <button id="consent-accept" class="button button-primary" type="button" disabled>Agree &amp; enable camera</button>
+      </div>
+    </dialog>
 
     <dialog id="question-dialog" class="question-dialog">
       <form method="dialog" id="question-form">

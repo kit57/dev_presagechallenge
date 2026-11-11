@@ -14,11 +14,14 @@ Then visit `http://localhost:8000`.
 
 ## Prototype scope
 
-- The camera preview uses the browser's `getUserMedia` API after the consent checkbox is selected.
-- Camera video stays in the browser tab; this prototype does not record or upload video or save notes.
+- Before camera access, the participant must review the camera/data disclosure and actively agree; the interviewer must not agree for them. Consent can be withdrawn, which stops the camera and session.
+- The camera preview uses the browser's `getUserMedia` API only after agreement and the browser permission prompt. It requests video only, not microphone audio.
+- Camera video is only shown as a live preview in the browser. This prototype does not record, analyze, or upload it.
 - Pulse and breathing values and waveforms are static sample data. They are not measured by SmartSpectra.
 - Facial-expression cues are not connected; expression labels are not a sentiment or truth score.
-- Questions can be added, prompts navigated, and a local image or video selected as a stimulus.
+- Notes, questions, and a selected local image or video exist only in page memory. They are not persisted and are lost when the page is closed or reloaded. Media is not uploaded.
+- The app has no account, backend, analytics, SmartSpectra SDK connection, SDK telemetry, or optional AI service. It loads no third-party fonts or AI assets.
+- Browser/OS camera-permission settings are controlled by the browser/operating system, not this page. A deployed static host could also have its own access logging policy; this prototype cannot describe a future host's logs or retention.
 - The session controls only demonstrate the interface; no SDK session or recording is started.
 
 ## SmartSpectra integration
