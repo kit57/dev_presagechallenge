@@ -222,12 +222,13 @@ h1 { margin-bottom: 5px; font-family: Manrope, sans-serif; font-size: clamp(24px
 .optional-label { color: #a1aaa4; font-size: 7px; font-weight: 700; letter-spacing: .65px; }
 .session-notes textarea { display: block; width: 100%; min-height: 50px; resize: vertical; margin-top: 10px; padding: 8px 9px; border: 1px solid #e9ede9; border-radius: 4px; background: #fcfdfc; color: var(--ink); font-size: 9px; line-height: 1.5; }
 .session-notes textarea::placeholder { color: #adb5af; }
-.notes-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; color: #a1aaa4; font-size: 7px; }
-.private-note { display: flex; align-items: center; gap: 4px; color: #7b8b80; }
-.private-note > span { font-size: 11px; }
+.notes-footer { display: flex; min-height: 20px; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; color: #87938b; font-size: 7px; }
+.delete-session-button { padding: 3px 0; border: 0; background: transparent; color: #a34f45; cursor: pointer; font-size: 7px; font-weight: 600; }
+.delete-session-button:hover { text-decoration: underline; }
 .page-footer { display: flex; justify-content: space-between; gap: 10px; padding: 15px 2px 0; color: #98a19b; font-size: 8px; }
 .page-footer > span:last-child { display: flex; align-items: center; gap: 5px; }
 .footer-dot { width: 5px; height: 5px; border-radius: 50%; background: #78a78e; }
+.footer-dot.storage-offline { background: #d3a05f; }
 
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; clip-path: inset(50%); }
 .consent-dialog { width: min(570px, calc(100% - 28px)); max-height: min(760px, calc(100dvh - 28px)); overflow: auto; padding: 23px; border: 1px solid #e7ebe7; border-radius: 9px; background: #fff; box-shadow: 0 20px 70px rgba(27, 44, 35, .19); }

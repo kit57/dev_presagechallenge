@@ -25,14 +25,19 @@ const questionDialog = document.querySelector("#question-dialog");
 const questionForm = document.querySelector("#question-form");
 const questionInput = document.querySelector("#question-input");
 const mediaUpload = document.querySelector("#media-upload");
-const mediaPreview = document.querySelector("#media-preview");
-const mediaPromptLabel = document.querySelector("#media-prompt-label");
+const notesInput = document.querySelector("#notes");
+const saveStatus = document.querySelector("#save-status");
+const deleteSessionButton = document.querySelector("#delete-session");
+const storageStatus = document.querySelector("#storage-status");
 
 let cameraStream = null;
 let sessionActive = false;
 let consentGranted = false;
 let currentPrompt = 0;
 let mediaObjectUrl = null;
+let saveTimer = null;
+let saveQueue = Promise.resolve();
+let deletingSavedCopy = false;
 
 const promptCards = () => [...promptList.querySelectorAll(".prompt-card")];
 
@@ -67,6 +72,146 @@ function updateConsentStatus() {
   consentIndicator.textContent = consentGranted ? "✓" : "!";
   consentIndicator.classList.toggle("consent-approved", consentGranted);
   reviewConsentButton.textContent = consentGranted ? "Review consent" : "Review & consent";
+}
+
+function updateStorageStatus(message, connected = false) {
+  const dot = document.createElement("span");
+  dot.className = "footer-dot";
+  dot.classList.toggle("storage-offline", !connected);
+  storageStatus.replaceChildren(dot, document.createTextNode(` ${message}`));
+}
+
+async function apiRequest(path, options = {}) {
+  const response = await fetch(path, {
+    cache: "no-store",
+    ...options,
+    headers: {
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...options.headers,
+    },
+  });
+  let result;
+  try {
+    result = await response.json();
+  } catch {
+    throw new Error(`Local backend returned an invalid response (${response.status}).`);
+  }
+  if (!response.ok) {
+    throw new Error(result.error ?? `Local backend request failed (${response.status}).`);
+  }
+  return result;
+}
+
+function sessionPromptData() {
+  return promptCards().map((card) => ({
+    type: card.dataset.promptType ?? "question",
+    text: card.dataset.promptType === "media"
+      ? "Show a picture or short video"
+      : card.dataset.promptText ?? card.querySelector(".prompt-body p").textContent,
+  }));
+}
+
+function createPromptCard(prompt, index) {
+  const card = document.createElement("article");
+  card.className = `prompt-card${prompt.type === "media" ? " media-prompt" : ""}`;
+  card.dataset.promptType = prompt.type;
+  card.dataset.promptText = prompt.text;
+
+  const number = document.createElement("span");
+  number.className = "prompt-number";
+  number.textContent = String(index + 1).padStart(2, "0");
+
+  const body = document.createElement("div");
+  body.className = "prompt-body";
+  const type = document.createElement("span");
+  type.className = "prompt-type";
+  const dot = document.createElement("span");
+  dot.className = `type-dot ${prompt.type === "media" ? "media-dot" : "question-dot"}`;
+  type.append(dot, document.createTextNode(prompt.type === "media" ? " MEDIA STIMULUS" : " QUESTION"));
+
+  const text = document.createElement("p");
+  text.textContent = prompt.text;
+  body.append(type, text);
+
+  if (prompt.type === "media") {
+    const preview = document.createElement("div");
+    preview.className = "media-preview";
+    preview.id = "media-preview";
+    const previewIcon = document.createElement("span");
+    previewIcon.setAttribute("aria-hidden", "true");
+    previewIcon.textContent = "▧";
+    preview.append(previewIcon, document.createTextNode(" Re-select media; files aren't saved"));
+    text.id = "media-prompt-label";
+    body.append(preview);
+  }
+
+  const menu = document.createElement("button");
+  menu.className = "prompt-menu";
+  menu.type = "button";
+  menu.setAttribute("aria-label", `Options for prompt ${number.textContent}`);
+  menu.textContent = "···";
+  card.append(number, body, menu);
+  return card;
+}
+
+function restoreSession(session) {
+  notesInput.value = session.notes;
+  promptList.replaceChildren(...session.prompts.map(createPromptCard));
+  currentPrompt = 0;
+  updatePrompts();
+  const date = new Date(session.expires_at).toLocaleDateString();
+  saveStatus.textContent = `Saved on this device · expires ${date}`;
+  deleteSessionButton.hidden = false;
+}
+
+function saveSession() {
+  if (!consentGranted) return Promise.resolve();
+  const body = JSON.stringify({ notes: notesInput.value, prompts: sessionPromptData() });
+  saveStatus.textContent = "Saving on this device…";
+  saveQueue = saveQueue.then(async () => {
+    try {
+      const { session } = await apiRequest("/api/session", { method: "PUT", body });
+      const date = new Date(session.expires_at).toLocaleDateString();
+      saveStatus.textContent = `Saved on this device · expires ${date}`;
+      deleteSessionButton.hidden = false;
+      updateStorageStatus("Saved on this device · expires after 30 days", true);
+    } catch (error) {
+      console.error("Could not save the session locally.", error);
+      saveStatus.textContent = "Not saved · local backend unavailable";
+      updateStorageStatus("Local save failed · start server.py to save", false);
+    }
+  });
+  return saveQueue;
+}
+
+function scheduleSessionSave() {
+  if (deletingSavedCopy) return;
+  if (!consentGranted) {
+    saveStatus.textContent = "Not saved · participant consent is required";
+    return;
+  }
+  saveStatus.textContent = "Unsaved changes…";
+  window.clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(saveSession, 500);
+}
+
+async function loadOrCreateSession() {
+  updateStorageStatus("Connecting to local backend…", false);
+  try {
+    const { session } = await apiRequest("/api/session");
+    if (session) restoreSession(session);
+    await saveSession();
+  } catch (error) {
+    console.error("Could not load the local session.", error);
+    saveStatus.textContent = "Not saved · local backend unavailable";
+    updateStorageStatus("Local backend unavailable · session stays in this page", false);
+  }
+}
+
+async function deleteStoredSession() {
+  window.clearTimeout(saveTimer);
+  await saveQueue;
+  return apiRequest("/api/session", { method: "DELETE" });
 }
 
 function openConsentDialog() {
@@ -172,9 +317,15 @@ document.querySelector("#consent-cancel").addEventListener("click", () => consen
 
 consentAccept.addEventListener("click", async () => {
   if (!consentAgreement.checked) return;
+  const consentWasAlreadyGranted = consentGranted;
   consentGranted = true;
   updateConsentStatus();
   consentDialog.close();
+  if (consentWasAlreadyGranted) {
+    if (!cameraStream) await requestCamera();
+    return;
+  }
+  await loadOrCreateSession();
   if (cameraStream) {
     cameraMessage.textContent = "Consent confirmed. The live preview is still on.";
     return;
@@ -182,14 +333,47 @@ consentAccept.addEventListener("click", async () => {
   await requestCamera();
 });
 
-withdrawConsentButton.addEventListener("click", () => {
+withdrawConsentButton.addEventListener("click", async () => {
   consentGranted = false;
   sessionActive = false;
+  window.clearTimeout(saveTimer);
+  deletingSavedCopy = true;
   updateConsentStatus();
   updateSessionControls();
   releaseCamera();
-  cameraMessage.textContent = "Consent withdrawn. The camera is off; no video was recorded or saved.";
   consentDialog.close();
+  try {
+    await deleteStoredSession();
+    deleteSessionButton.hidden = true;
+    saveStatus.textContent = "Saved copy deleted · current page data clears when closed";
+    updateStorageStatus("Consent withdrawn · saved copy deleted", true);
+    cameraMessage.textContent = "Consent withdrawn. The camera is off and the saved session copy has been deleted.";
+  } catch (error) {
+    console.error("Could not delete the saved session after consent was withdrawn.", error);
+    updateStorageStatus("Consent withdrawn · unable to confirm saved-data deletion", false);
+    cameraMessage.textContent = "Consent withdrawn and camera is off, but the backend could not confirm deletion. The saved copy will expire after 30 days; restart the local server and delete it.";
+  } finally {
+    deletingSavedCopy = false;
+  }
+});
+
+notesInput.addEventListener("input", scheduleSessionSave);
+
+deleteSessionButton.addEventListener("click", async () => {
+  if (!window.confirm("Delete the saved copy of this session from this computer? The current page will remain open.")) return;
+  deletingSavedCopy = true;
+  try {
+    await deleteStoredSession();
+    deleteSessionButton.hidden = true;
+    saveStatus.textContent = "Saved copy deleted · current page data is not saved";
+    updateStorageStatus("Saved copy deleted · future edits will be saved", true);
+  } catch (error) {
+    console.error("Could not delete the saved session.", error);
+    saveStatus.textContent = "Could not delete · local backend unavailable";
+    updateStorageStatus("Delete failed · restart server.py and try again", false);
+  } finally {
+    deletingSavedCopy = false;
+  }
 });
 
 document.querySelector("#add-question").addEventListener("click", () => {
@@ -208,6 +392,8 @@ questionForm.addEventListener("submit", (event) => {
   }
   const card = document.createElement("article");
   card.className = "prompt-card";
+  card.dataset.promptType = "question";
+  card.dataset.promptText = text;
   const number = document.createElement("span");
   number.className = "prompt-number";
   number.textContent = String(promptCards().length + 1).padStart(2, "0");
@@ -231,6 +417,7 @@ questionForm.addEventListener("submit", (event) => {
   currentPrompt = promptCards().length - 1;
   updatePrompts();
   questionDialog.close();
+  scheduleSessionSave();
 });
 
 previousButton.addEventListener("click", () => {
@@ -257,9 +444,12 @@ mediaUpload.addEventListener("change", () => {
     preview.playsInline = true;
     preview.controls = true;
   }
-  mediaPreview.replaceChildren(preview);
-  mediaPreview.classList.add("has-media");
-  mediaPromptLabel.textContent = file.name;
+  const activeMediaPreview = document.querySelector("#media-preview");
+  const activeMediaLabel = document.querySelector("#media-prompt-label");
+  if (!activeMediaPreview || !activeMediaLabel) return;
+  activeMediaPreview.replaceChildren(preview);
+  activeMediaPreview.classList.add("has-media");
+  activeMediaLabel.textContent = file.name;
   updatePrompts();
 });
 

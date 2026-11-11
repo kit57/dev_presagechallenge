@@ -170,15 +170,15 @@
                 </div>
 
                 <div class="prompt-list" id="prompt-list">
-                  <article class="prompt-card active-prompt">
+                  <article class="prompt-card active-prompt" data-prompt-type="question" data-prompt-text="Could you tell me what happened from your perspective?">
                     <span class="prompt-number">01</span><div class="prompt-body"><span class="prompt-type"><span class="type-dot question-dot"></span> QUESTION</span><p>Could you tell me what happened from your perspective?</p></div>
                     <button class="prompt-menu" type="button" aria-label="Options for prompt 1">···</button>
                   </article>
-                  <article class="prompt-card">
+                  <article class="prompt-card" data-prompt-type="question" data-prompt-text="What do you remember most clearly about that day?">
                     <span class="prompt-number">02</span><div class="prompt-body"><span class="prompt-type"><span class="type-dot question-dot"></span> QUESTION</span><p>What do you remember most clearly about that day?</p></div>
                     <button class="prompt-menu" type="button" aria-label="Options for prompt 2">···</button>
                   </article>
-                  <article class="prompt-card media-prompt">
+                  <article class="prompt-card media-prompt" data-prompt-type="media" data-prompt-text="Show a picture or short video">
                     <span class="prompt-number">03</span><div class="prompt-body"><span class="prompt-type"><span class="type-dot media-dot"></span> MEDIA STIMULUS</span><p id="media-prompt-label">Show a picture or short video</p><div id="media-preview" class="media-preview"><span aria-hidden="true">▧</span> Add an image or video</div></div>
                     <button class="prompt-menu" type="button" aria-label="Options for prompt 3">···</button>
                   </article>
@@ -204,13 +204,13 @@
               <section class="panel session-notes" aria-labelledby="notes-title">
                 <div class="notes-heading"><span class="notes-icon" aria-hidden="true">✎</span><h2 id="notes-title">Session notes</h2><span class="optional-label">OPTIONAL</span></div>
                 <label class="visually-hidden" for="notes">Add private session notes</label>
-                <textarea id="notes" placeholder="Add a note or observation…" rows="3"></textarea>
-                <div class="notes-footer"><span>Not saved · cleared when you leave</span><span class="private-note"><span aria-hidden="true">⌑</span> On this page only</span></div>
+                <textarea id="notes" maxlength="5000" placeholder="Add a note or observation…" rows="3"></textarea>
+                <div class="notes-footer"><span id="save-status" role="status" aria-live="polite">Not saved · cleared when you leave</span><button id="delete-session" class="delete-session-button" type="button" hidden>Delete saved copy</button></div>
               </section>
             </div>
           </div>
 
-          <footer class="page-footer"><span>Prototype UI · SmartSpectra is not connected</span><span><span class="footer-dot"></span> No session data is uploaded or saved</span></footer>
+          <footer class="page-footer"><span>Prototype UI · SmartSpectra is not connected</span><span id="storage-status"><span class="footer-dot"></span> No session data is stored until consent</span></footer>
         </div>
       </main>
     </div>
@@ -225,7 +225,7 @@
       <div class="disclosure-list">
         <section class="disclosure-item">
           <span class="disclosure-icon camera-disclosure-icon" aria-hidden="true">◉</span>
-          <div><h3>Camera access</h3><p>Agreeing lets this page request a live, muted camera preview. No microphone is requested. The browser and operating system may show their own camera permission prompt.</p></div>
+          <div><h3>Camera access</h3><p>Agreeing lets this page request a live, muted camera preview. No microphone is requested. You can turn the camera off at any time; that stops the live stream. The browser and operating system may show their own camera permission prompt.</p></div>
         </section>
         <section class="disclosure-item">
           <span class="disclosure-icon signal-disclosure-icon" aria-hidden="true">⌁</span>
@@ -233,7 +233,7 @@
         </section>
         <section class="disclosure-item">
           <span class="disclosure-icon data-disclosure-icon" aria-hidden="true">▤</span>
-          <div><h3>Storage, sharing &amp; deletion</h3><p>This page has no account, backend, analytics, or upload. Notes, prompts, and chosen media stay in this page's memory; they are not saved and are cleared when you close or reload it. Turning off the camera stops its tracks. The browser may cache the app files and retain its camera permission choice; manage permissions in browser settings. If hosted online, the host may log ordinary page requests under its own policy; that must be disclosed separately.</p></div>
+          <div><h3>Storage, sharing &amp; deletion</h3><p>After you agree, this app saves one session's question prompts and notes in <code>~/.signal-session/sessions.sqlite3</code> on this computer under the account running the server. It expires 30 days after first save; edits do not extend that period. Expired data is physically removed the next time the local server starts or the session API is used, so its file can remain on disk longer if the server is not run. Use “Delete saved copy” to remove it sooner; withdrawing consent stops the camera and attempts to delete it. Local image/video files, camera video, audio, pulse and breathing values, and expression data are never sent to or stored by the backend. The server binds to this computer only and shares no session data. Its terminal shows request paths/status, not note or prompt contents. Browser permission choices are managed in browser settings.</p></div>
         </section>
         <section class="disclosure-item">
           <span class="disclosure-icon integration-disclosure-icon" aria-hidden="true">◇</span>
@@ -243,9 +243,9 @@
       <label class="agreement-label">
         <input id="consent-agreement" type="checkbox" />
         <span class="agreement-check" aria-hidden="true"></span>
-        <span>I am the participant. I have read and voluntarily agree to the live camera preview and data handling described above.</span>
+        <span>I am the participant. I have read and voluntarily agree to the live camera preview and local prompt/note storage described above.</span>
       </label>
-      <p class="consent-note">You can choose “Not now” without enabling the camera or losing access to the rest of the prototype.</p>
+      <p class="consent-note">You can choose “Not now” without enabling the camera. The saved copy expires after 30 days; physical removal happens on the next server run or API use. You can delete it sooner.</p>
       <div class="dialog-actions consent-actions">
         <button id="withdraw-consent" class="withdraw-button" type="button" hidden>Withdraw consent</button>
         <button id="consent-cancel" class="button button-outline" type="button">Not now</button>
