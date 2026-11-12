@@ -9,7 +9,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 
-ROOT = Path(__file__).resolve().parent
+WEB_ROOT = Path(__file__).resolve().parents[1] / "src" / "renderer"
 DATABASE = Path.home() / ".signal-session" / "sessions.sqlite3"
 RETENTION_DAYS = 30
 MAX_REQUEST_BYTES = 64 * 1024
@@ -128,7 +128,7 @@ class SessionStore:
 def make_handler(store: SessionStore) -> type[SimpleHTTPRequestHandler]:
     class RequestHandler(SimpleHTTPRequestHandler):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
-            super().__init__(*args, directory=str(ROOT), **kwargs)
+            super().__init__(*args, directory=str(WEB_ROOT), **kwargs)
 
         def _send_json(self, status: int, payload: dict[str, Any]) -> None:
             body = json.dumps(payload).encode("utf-8")

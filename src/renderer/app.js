@@ -1,3 +1,6 @@
+import { breathingMetrics, ProcessingStatus, SmartSpectraSDK } from "@smartspectra/node-sdk/renderer";
+import { decodeMetrics } from "@smartspectra/node-sdk/messages";
+
 const cameraVideo = document.querySelector("#camera-video");
 const cameraStage = document.querySelector("#camera-stage");
 const cameraPlaceholder = document.querySelector("#camera-placeholder");
@@ -29,15 +32,22 @@ const notesInput = document.querySelector("#notes");
 const saveStatus = document.querySelector("#save-status");
 const deleteSessionButton = document.querySelector("#delete-session");
 const storageStatus = document.querySelector("#storage-status");
+const sdkStatus = document.querySelector("#sdk-status");
+const breathingNumber = document.querySelector("#breathing-number");
+const breathingConfidence = document.querySelector("#breathing-confidence");
+const breathingTrend = document.querySelector("#breathing-trend");
 
 let cameraStream = null;
 let sessionActive = false;
+let sdk = null;
+let sdkStartTask = null;
 let consentGranted = false;
 let currentPrompt = 0;
 let mediaObjectUrl = null;
 let saveTimer = null;
 let saveQueue = Promise.resolve();
 let deletingSavedCopy = false;
+let breathingHistory = [];
 
 const promptCards = () => [...promptList.querySelectorAll(".prompt-card")];
 
@@ -57,12 +67,62 @@ function updatePrompts() {
 }
 
 function updateSessionControls() {
-  startButton.disabled = sessionActive;
-  endButton.disabled = !sessionActive;
+  startButton.disabled = sessionActive || Boolean(sdkStartTask);
+  endButton.disabled = !sessionActive && !sdkStartTask;
   recordingLabel.classList.toggle("is-visible", sessionActive && Boolean(cameraStream));
   startButton.innerHTML = sessionActive
-    ? '<span class="record-dot" aria-hidden="true"></span> Session in progress'
-    : '<span class="record-dot" aria-hidden="true"></span> Start session';
+    ? '<span class="record-dot" aria-hidden="true"></span> Measurement running'
+    : '<span class="record-dot" aria-hidden="true"></span> Start measurement';
+}
+
+function updateSdkStatus(message, running = false) {
+  const indicator = document.createElement("span");
+  sdkStatus.replaceChildren(indicator, document.createTextNode(` ${message}`));
+  sdkStatus.classList.toggle("sdk-running", running);
+}
+
+function resetBreathingSignal() {
+  breathingNumber.textContent = "—";
+  breathingConfidence.textContent = "Waiting for SmartSpectra…";
+  breathingHistory = [];
+  breathingTrend.setAttribute("d", "");
+}
+
+function updateBreathingTrend(reading) {
+  if (!Number.isFinite(reading.value)) return;
+  breathingHistory.push(reading.value);
+  breathingHistory = breathingHistory.slice(-28);
+  if (breathingHistory.length < 2) return;
+
+  const min = Math.min(...breathingHistory);
+  const max = Math.max(...breathingHistory);
+  const spread = Math.max(max - min, 1);
+  const points = breathingHistory.map((value, index) => {
+    const x = (index / (breathingHistory.length - 1)) * 280;
+    const y = 37 - ((value - min) / spread) * 32;
+    return `${index === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
+  });
+  breathingTrend.setAttribute("d", points.join(" "));
+}
+
+function showLiveMetrics(buffer) {
+  const metrics = decodeMetrics(buffer);
+  if (!metrics || typeof metrics !== "object" || metrics instanceof Uint8Array) {
+    cameraMessage.textContent = "SmartSpectra returned an unreadable metrics payload.";
+    return;
+  }
+  const readings = metrics.breathing?.rate ?? [];
+  const reading = readings.at(-1);
+  if (!reading || !Number.isFinite(reading.value)) return;
+
+  breathingNumber.textContent = reading.value.toFixed(1);
+  const confidence = Number.isFinite(reading.confidence)
+    ? ` · ${reading.confidence.toFixed(0)}% confidence`
+    : "";
+  const stability = reading.stable === true ? " · stable" : " · not stable";
+  breathingConfidence.textContent = `Live SDK reading${confidence}${stability}`;
+  updateBreathingTrend(reading);
+  updateSdkStatus("LIVE SDK SIGNAL", true);
 }
 
 function updateConsentStatus() {
@@ -178,7 +238,7 @@ function saveSession() {
     } catch (error) {
       console.error("Could not save the session locally.", error);
       saveStatus.textContent = "Not saved · local backend unavailable";
-      updateStorageStatus("Local save failed · start server.py to save", false);
+      updateStorageStatus("Local save failed · restart Signal Session to save", false);
     }
   });
   return saveQueue;
@@ -218,7 +278,7 @@ function openConsentDialog() {
   consentAgreement.checked = false;
   consentAccept.disabled = true;
   withdrawConsentButton.hidden = !consentGranted;
-  consentAccept.textContent = cameraStream ? "I understand" : "Agree & enable camera";
+  consentAccept.textContent = consentGranted ? "I understand" : "Agree & start SmartSpectra";
   consentDialog.showModal();
 }
 
@@ -230,60 +290,140 @@ function releaseCamera() {
   cameraVideo.srcObject = null;
   cameraStage.classList.remove("camera-active");
   cameraPlaceholder.hidden = false;
-  cameraButton.innerHTML = '<span class="camera-toggle-icon" aria-hidden="true">◉</span> Enable camera';
+  cameraButton.innerHTML = '<span class="camera-toggle-icon" aria-hidden="true">◉</span> Start SmartSpectra';
   cameraStatus.classList.remove("is-on");
   cameraStatus.innerHTML = "<span></span> Camera off";
-  cameraMessage.textContent = "Camera is off. You can turn it back on whenever you like.";
+  resetBreathingSignal();
   updateSessionControls();
 }
 
-async function requestCamera() {
-  if (cameraStream) {
-    return true;
+async function stopSmartSpectra() {
+  if (sdkStartTask) await sdkStartTask;
+  const activeSdk = sdk;
+  sdk = null;
+  sessionActive = false;
+  updateSessionControls();
+
+  let stopFailed = false;
+  if (activeSdk) {
+    try {
+      await activeSdk.stop();
+    } catch (error) {
+      console.error("Could not stop the SmartSpectra measurement cleanly.", error);
+      stopFailed = true;
+    } finally {
+      activeSdk.destroy();
+    }
   }
-  if (!navigator.mediaDevices?.getUserMedia) {
-    cameraMessage.textContent = "Camera access requires HTTPS or localhost and a supported browser.";
+  releaseCamera();
+  updateSdkStatus("SDK STOPPED");
+  cameraMessage.textContent = stopFailed
+    ? "Measurement stopped, but the SDK reported an error during shutdown. The camera preview has been cleared."
+    : "Measurement stopped. No video or breathing values are saved by this app.";
+}
+
+async function startSmartSpectra() {
+  if (sdkStartTask) return sdkStartTask;
+  if (sessionActive) return true;
+  if (!consentGranted) {
+    openConsentDialog();
     return false;
   }
+
+  const apiKey = window.signalSessionConfig?.getApiKey();
+  if (!apiKey) {
+    cameraMessage.textContent = "Presage API key missing. Add PRESAGE_API_KEY to your local .env file, then restart the app.";
+    updateSdkStatus("API KEY REQUIRED");
+    return false;
+  }
+
+  updateSdkStatus("STARTING");
+  cameraMessage.textContent = "Starting SmartSpectra. The first breathing estimate may take about 30 seconds.";
   cameraButton.disabled = true;
-  cameraMessage.textContent = "Waiting for camera permission…";
-  try {
-    cameraStream = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
-    });
-    cameraVideo.srcObject = cameraStream;
-    cameraPlaceholder.hidden = true;
-    cameraStage.classList.add("camera-active");
-    cameraButton.innerHTML = '<span class="camera-toggle-icon" aria-hidden="true">◉</span> Turn camera off';
-    cameraStatus.classList.add("is-on");
-    cameraStatus.innerHTML = "<span></span> Camera on";
-    cameraMessage.textContent = "Live preview only. This prototype does not record, analyze, or upload video.";
-    updateSessionControls();
-    return true;
-  } catch (error) {
-    const messages = {
-      NotAllowedError: "Camera permission was denied. Allow camera access in your browser settings to continue.",
-      NotFoundError: "No camera was found. Connect a camera and try again.",
-      NotReadableError: "The camera is already in use by another app. Close it and try again.",
-    };
-    cameraMessage.textContent = messages[error.name] ?? "Could not start the camera. Check browser permissions and try again.";
-    return false;
-  } finally {
-    cameraButton.disabled = false;
-  }
+  sdkStartTask = (async () => {
+    try {
+      const activeSdk = new SmartSpectraSDK({
+        apiKey,
+        requestedMetrics: [...breathingMetrics],
+        enableTelemetry: false,
+      });
+      sdk = activeSdk;
+
+      activeSdk.on("streamAvailable", (stream) => {
+        cameraStream = stream;
+        cameraVideo.srcObject = stream;
+        cameraPlaceholder.hidden = true;
+        cameraStage.classList.add("camera-active");
+        cameraButton.innerHTML = '<span class="camera-toggle-icon" aria-hidden="true">◉</span> Stop SmartSpectra';
+        cameraStatus.classList.add("is-on");
+        cameraStatus.innerHTML = "<span></span> Camera on";
+        updateSessionControls();
+      });
+      activeSdk.on("processingStatus", (status) => {
+        if (status === ProcessingStatus.kRunning) {
+          updateSdkStatus("PROCESSING", true);
+          cameraMessage.textContent = "SmartSpectra is processing locally. A breathing estimate needs a full measurement window.";
+        }
+      });
+      activeSdk.on("validationStatus", (_code, _timestampUs, hint) => {
+        if (hint) cameraMessage.textContent = hint;
+      });
+      activeSdk.on("metrics", (buffer) => {
+        try {
+          showLiveMetrics(buffer);
+        } catch (error) {
+          console.error("Could not decode SmartSpectra breathing metrics.", error);
+          cameraMessage.textContent = "Could not read the SmartSpectra metrics. Stop and restart the measurement.";
+        }
+      });
+      activeSdk.on("error", (code, message, retryable) => {
+        console.error("SmartSpectra reported an error.", { code, message, retryable });
+        cameraMessage.textContent = message || "SmartSpectra reported an error.";
+        updateSdkStatus(retryable ? "RETRY AVAILABLE" : "SDK ERROR");
+      });
+
+      await activeSdk.start();
+      if (sdk !== activeSdk) return false;
+      sessionActive = true;
+      updateSessionControls();
+      return true;
+    } catch (error) {
+      console.error("Could not start SmartSpectra.", error);
+      cameraMessage.textContent = error instanceof Error
+        ? `Could not start SmartSpectra: ${error.message}`
+        : "Could not start SmartSpectra. Check the API key, camera permissions, and setup instructions.";
+      updateSdkStatus("START FAILED");
+      const failedSdk = sdk;
+      sdk = null;
+      if (failedSdk) {
+        try {
+          await failedSdk.stop();
+        } catch (stopError) {
+          console.error("Could not clean up the failed SmartSpectra startup.", stopError);
+        }
+        failedSdk.destroy();
+      }
+      releaseCamera();
+      return false;
+    } finally {
+      sdkStartTask = null;
+      cameraButton.disabled = false;
+      updateSessionControls();
+    }
+  })();
+  return sdkStartTask;
 }
 
 cameraButton.addEventListener("click", async () => {
-  if (cameraStream) {
-    releaseCamera();
+  if (sdk || sessionActive) {
+    await stopSmartSpectra();
     return;
   }
   if (!consentGranted) {
     openConsentDialog();
     return;
   }
-  await requestCamera();
+  await startSmartSpectra();
 });
 
 reviewConsentButton.addEventListener("click", openConsentDialog);
@@ -292,25 +432,15 @@ consentAgreement.addEventListener("change", () => {
   consentAccept.disabled = !consentAgreement.checked;
 });
 
-startButton.addEventListener("click", () => {
+startButton.addEventListener("click", async () => {
   if (!consentGranted) {
     openConsentDialog();
     return;
   }
-  if (!cameraStream) {
-    cameraMessage.textContent = "Enable the camera before starting the session.";
-    cameraButton.focus();
-    return;
-  }
-  sessionActive = true;
-  updateSessionControls();
+  await startSmartSpectra();
 });
 
-endButton.addEventListener("click", () => {
-  sessionActive = false;
-  updateSessionControls();
-  releaseCamera();
-});
+endButton.addEventListener("click", stopSmartSpectra);
 
 document.querySelector("#consent-close").addEventListener("click", () => consentDialog.close());
 document.querySelector("#consent-cancel").addEventListener("click", () => consentDialog.close());
@@ -321,16 +451,8 @@ consentAccept.addEventListener("click", async () => {
   consentGranted = true;
   updateConsentStatus();
   consentDialog.close();
-  if (consentWasAlreadyGranted) {
-    if (!cameraStream) await requestCamera();
-    return;
-  }
-  await loadOrCreateSession();
-  if (cameraStream) {
-    cameraMessage.textContent = "Consent confirmed. The live preview is still on.";
-    return;
-  }
-  await requestCamera();
+  if (!consentWasAlreadyGranted) await loadOrCreateSession();
+  await startSmartSpectra();
 });
 
 withdrawConsentButton.addEventListener("click", async () => {
@@ -340,7 +462,7 @@ withdrawConsentButton.addEventListener("click", async () => {
   deletingSavedCopy = true;
   updateConsentStatus();
   updateSessionControls();
-  releaseCamera();
+  await stopSmartSpectra();
   consentDialog.close();
   try {
     await deleteStoredSession();
@@ -370,7 +492,7 @@ deleteSessionButton.addEventListener("click", async () => {
   } catch (error) {
     console.error("Could not delete the saved session.", error);
     saveStatus.textContent = "Could not delete · local backend unavailable";
-    updateStorageStatus("Delete failed · restart server.py and try again", false);
+    updateStorageStatus("Delete failed · restart Signal Session and try again", false);
   } finally {
     deletingSavedCopy = false;
   }

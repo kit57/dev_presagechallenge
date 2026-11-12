@@ -1,4 +1,6 @@
-# Signal Session — Presage prototype
+# Archived prototype notes
+
+This document describes the earlier browser-only prototype and is retained for history. For current setup, SmartSpectra integration, and data handling, use the repository's root `README.md`.
 
 A consent-first frontend concept for structured interview sessions, optional camera preview, and question or media prompts.
 

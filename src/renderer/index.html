@@ -6,11 +6,11 @@
     <meta name="theme-color" content="#f5f6f4" />
     <meta
       name="description"
-      content="A consent-first workspace for structured interview sessions and camera-based wellness signals."
+      content="A consent-first local workspace using SmartSpectra to display live breathing signals."
     />
-    <title>Signal Session — Presage prototype</title>
+    <title>Signal Session — SmartSpectra</title>
     <link rel="stylesheet" href="styles.css" />
-    <script src="app.js" defer></script>
+    <script src="dist/app.bundle.js" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -72,7 +72,7 @@
                 <span class="stop-square" aria-hidden="true"></span> End session
               </button>
               <button id="start-session" class="button button-primary" type="button">
-                <span class="record-dot" aria-hidden="true"></span> Start session
+                <span class="record-dot" aria-hidden="true"></span> Start measurement
               </button>
             </div>
           </section>
@@ -103,14 +103,14 @@
                       <svg viewBox="0 0 48 48" fill="none"><rect x="7" y="12" width="25" height="24" rx="5" stroke="currentColor" stroke-width="1.6"/><path d="m32 20 9-5v18l-9-5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="19.5" cy="21" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M11 33c1.8-4 5-6 8.5-6 1.7 0 3.3.5 4.7 1.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
                     </div>
                     <strong>Your camera preview will appear here</strong>
-                    <span>Camera access is only requested after consent.</span>
+                    <span>SmartSpectra opens the camera after participant consent.</span>
                   </div>
                   <div class="camera-corner corner-tl"></div><div class="camera-corner corner-tr"></div>
                   <div class="camera-corner corner-bl"></div><div class="camera-corner corner-br"></div>
-                  <span id="recording-label" class="recording-label"><span></span> LIVE SESSION</span>
+                  <span id="recording-label" class="recording-label"><span></span> LIVE MEASUREMENT</span>
                   <div class="camera-controls">
-                    <span class="camera-lock"><span aria-hidden="true">⌑</span> Video stays on this device</span>
-                    <button id="camera-toggle" class="camera-toggle" type="button"><span class="camera-toggle-icon" aria-hidden="true">◉</span> Enable camera</button>
+                    <span class="camera-lock"><span aria-hidden="true">⌑</span> On-device processing · no recording</span>
+                    <button id="camera-toggle" class="camera-toggle" type="button"><span class="camera-toggle-icon" aria-hidden="true">◉</span> Start SmartSpectra</button>
                   </div>
                 </div>
 
@@ -128,34 +128,32 @@
                 <div class="panel-heading">
                   <div class="panel-title">
                     <span class="signal-icon" aria-hidden="true">⌁</span>
-                    <div><h2 id="signals-title">Signal overview</h2><p>Sample values shown for layout preview only.</p></div>
+                    <div><h2 id="signals-title">Live signal overview</h2><p>Breathing rate from SmartSpectra · not a truth assessment.</p></div>
                   </div>
-                  <span class="sample-badge"><span></span> SAMPLE DATA</span>
+                  <span id="sdk-status" class="sample-badge"><span></span> SDK NOT STARTED</span>
                 </div>
                 <div class="metrics-grid">
                   <article class="metric-card">
                     <div class="metric-label"><span class="metric-symbol heart">♡</span> PULSE RATE <span class="metric-help" title="Pulse estimates are not indicators of honesty." aria-label="Pulse estimates are not indicators of honesty.">i</span></div>
-                    <div class="metric-value">72 <span>bpm</span></div>
-                    <div class="metric-foot"><span class="metric-dot"></span> Sample reading <span class="metric-quality">·</span> Confidence —</div>
-                    <svg class="metric-chart pulse-chart" viewBox="0 0 280 42" preserveAspectRatio="none" aria-label="Illustrative pulse waveform">
-                      <path d="M0 22h39l9-1 7 3 8-2 7-16 8 30 9-16 8 1h25l8-2 7 3 8-2 7-16 8 30 9-16 8 1h25l9-2 7 3 8-1 7-15 8 28 9-15 8 2h30" />
-                    </svg>
+                    <div class="metric-value">— <span>not requested</span></div>
+                    <div class="metric-foot">This starter requests breathing only.</div>
+                    <div class="metric-empty-space"></div>
                   </article>
                   <article class="metric-card">
                     <div class="metric-label"><span class="metric-symbol breath">≋</span> BREATHING <span class="metric-help" title="Breathing rate varies with activity and other factors." aria-label="Breathing rate varies with activity and other factors.">i</span></div>
-                    <div class="metric-value">14 <span>breaths / min</span></div>
-                    <div class="metric-foot"><span class="metric-dot"></span> Sample reading <span class="metric-quality">·</span> Confidence —</div>
-                    <svg class="metric-chart breath-chart" viewBox="0 0 280 42" preserveAspectRatio="none" aria-label="Illustrative breathing waveform">
-                      <path d="M0 24c20 0 20-15 42-15s22 15 43 15 21-15 43-15 22 15 43 15 22-15 43-15 22 15 43 15 21-15 43-15" />
+                    <div class="metric-value"><span id="breathing-number">—</span> <span>breaths / min</span></div>
+                    <div id="breathing-confidence" class="metric-foot">Waiting for SmartSpectra…</div>
+                    <svg class="metric-chart breath-chart" viewBox="0 0 280 42" preserveAspectRatio="none" aria-label="Live breathing rate trend">
+                      <path id="breathing-trend" d="" />
                     </svg>
                   </article>
                 </div>
                 <div class="expression-signal">
                   <span class="expression-icon" aria-hidden="true">◌</span>
-                  <div class="expression-copy"><strong>Facial expression cues</strong><span>SDK not connected · not a sentiment or truth score</span></div>
-                  <span class="not-connected">NOT CONNECTED</span>
+                  <div class="expression-copy"><strong>Pulse and expression analysis</strong><span>Not requested · no sentiment or truth score</span></div>
+                  <span class="not-connected">OFF</span>
                 </div>
-                <div class="signal-footnote"><span aria-hidden="true">✳</span> Sample values are illustrative—not measured by SmartSpectra and not linked to the camera.</div>
+                <div class="signal-footnote"><span aria-hidden="true">✳</span> SmartSpectra reports wellness signals, not whether someone is truthful. Breathing readings need a full measurement window.</div>
               </section>
             </div>
 
@@ -210,7 +208,7 @@
             </div>
           </div>
 
-          <footer class="page-footer"><span>Prototype UI · SmartSpectra is not connected</span><span id="storage-status"><span class="footer-dot"></span> No session data is stored until consent</span></footer>
+          <footer class="page-footer"><span>SmartSpectra SDK · breathing only · Electron desktop app</span><span id="storage-status"><span class="footer-dot"></span> No session data is stored until consent</span></footer>
         </div>
       </main>
     </div>
@@ -225,31 +223,31 @@
       <div class="disclosure-list">
         <section class="disclosure-item">
           <span class="disclosure-icon camera-disclosure-icon" aria-hidden="true">◉</span>
-          <div><h3>Camera access</h3><p>Agreeing lets this page request a live, muted camera preview. No microphone is requested. You can turn the camera off at any time; that stops the live stream. The browser and operating system may show their own camera permission prompt.</p></div>
+          <div><h3>Camera access</h3><p>Agreeing starts SmartSpectra and requests a live, muted camera stream. No microphone is requested. SmartSpectra processes the live frames on this computer; this app does not record video or send it to the Python session backend. You can stop the measurement or withdraw consent at any time. Electron and the operating system may show a camera permission prompt.</p></div>
         </section>
         <section class="disclosure-item">
           <span class="disclosure-icon signal-disclosure-icon" aria-hidden="true">⌁</span>
-          <div><h3>What is measured</h3><p>Nothing in this prototype. The pulse and breathing cards are sample numbers, and facial-expression analysis is not connected. No video is recorded or analyzed by this app.</p></div>
+          <div><h3>What is measured</h3><p>This app requests only SmartSpectra breathing-rate metrics and displays the live estimate, confidence, and stability when available. Early readings may be unavailable until a full measurement window completes. Pulse, HRV, and facial-expression or sentiment analysis are not requested. These wellness signals are not evidence of honesty and must not be used for diagnosis, treatment, or medical decisions.</p></div>
         </section>
         <section class="disclosure-item">
           <span class="disclosure-icon data-disclosure-icon" aria-hidden="true">▤</span>
-          <div><h3>Storage, sharing &amp; deletion</h3><p>After you agree, this app saves one session's question prompts and notes in <code>~/.signal-session/sessions.sqlite3</code> on this computer under the account running the server. It expires 30 days after first save; edits do not extend that period. Expired data is physically removed the next time the local server starts or the session API is used, so its file can remain on disk longer if the server is not run. Use “Delete saved copy” to remove it sooner; withdrawing consent stops the camera and attempts to delete it. Local image/video files, camera video, audio, pulse and breathing values, and expression data are never sent to or stored by the backend. The server binds to this computer only and shares no session data. Its terminal shows request paths/status, not note or prompt contents. Browser permission choices are managed in browser settings.</p></div>
+          <div><h3>Storage, sharing &amp; deletion</h3><p>After you agree, this app saves one session's question prompts and notes in <code>~/.signal-session/sessions.sqlite3</code> on this computer under the account running the server. It expires 30 days after first save; edits do not extend that period. Expired data is physically removed the next time the local server starts or the session API is used, so its file can remain on disk longer if the server is not run. Use “Delete saved copy” to remove it sooner; withdrawing consent stops SmartSpectra and attempts to delete it. Camera frames and live breathing metrics are not written to the session database; uploaded prompt media is previewed locally and is not saved by this app. The local backend binds to this computer only and does not share session notes or prompts. The SDK uses your API key to authenticate with Presage; no optional AI service is used. Its terminal shows request paths/status, not note or prompt contents.</p></div>
         </section>
         <section class="disclosure-item">
           <span class="disclosure-icon integration-disclosure-icon" aria-hidden="true">◇</span>
-          <div><h3>SDK telemetry &amp; AI</h3><p>SmartSpectra is not connected, so there is no SDK telemetry from this app. No optional AI service is used. A future SDK or AI integration would need a separate, updated disclosure and consent before it is enabled.</p></div>
+          <div><h3>SDK telemetry &amp; AI</h3><p>SmartSpectra SDK telemetry is explicitly disabled in this app. The SDK makes a Presage authentication request when a measurement starts; the API key is stored only in your local <code>.env</code> file and is not saved with session notes. No optional AI service is used.</p></div>
         </section>
       </div>
       <label class="agreement-label">
         <input id="consent-agreement" type="checkbox" />
         <span class="agreement-check" aria-hidden="true"></span>
-        <span>I am the participant. I have read and voluntarily agree to the live camera preview and local prompt/note storage described above.</span>
+        <span>I am the participant, I am 18 or older, and I have read and voluntarily agree to SmartSpectra camera processing and local prompt/note storage described above.</span>
       </label>
-      <p class="consent-note">You can choose “Not now” without enabling the camera. The saved copy expires after 30 days; physical removal happens on the next server run or API use. You can delete it sooner.</p>
+      <p class="consent-note">Only the participant may agree. Do not monitor anyone without their knowledge and consent. You can choose “Not now” without starting SmartSpectra. The saved copy expires after 30 days; physical removal happens on the next server run or API use. You can delete it sooner.</p>
       <div class="dialog-actions consent-actions">
         <button id="withdraw-consent" class="withdraw-button" type="button" hidden>Withdraw consent</button>
         <button id="consent-cancel" class="button button-outline" type="button">Not now</button>
-        <button id="consent-accept" class="button button-primary" type="button" disabled>Agree &amp; enable camera</button>
+        <button id="consent-accept" class="button button-primary" type="button" disabled>Agree &amp; start SmartSpectra</button>
       </div>
     </dialog>
 

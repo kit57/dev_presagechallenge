@@ -1,0 +1,4 @@
+# Copy this file to local.properties and set your Presage key for personal testing.
+# The API key is embedded in the built app; do not share or publish this APK.
+# Android Studio normally adds sdk.dir automatically when you sync the project.
+presage.apiKey=YOUR_PRESAGE_API_KEY
