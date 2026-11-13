@@ -57,13 +57,24 @@ function updatePrompts() {
   cards.forEach((card, index) => {
     card.classList.toggle("active-prompt", index === currentPrompt);
   });
-  const shown = String(currentPrompt + 1).padStart(2, "0");
+  const shown = String(cards.length ? currentPrompt + 1 : 0).padStart(2, "0");
   promptCount.textContent = String(cards.length).padStart(2, "0");
   progressValue.innerHTML = `${shown} <span>/</span> ${String(cards.length).padStart(2, "0")}`;
   progressBar.style.width = `${cards.length ? ((currentPrompt + 1) / cards.length) * 100 : 0}%`;
   currentPromptLabel.textContent = cards.length ? `Prompt ${currentPrompt + 1} of ${cards.length}` : "No prompts yet";
   previousButton.disabled = currentPrompt === 0;
   nextButton.disabled = cards.length < 2 || currentPrompt >= cards.length - 1;
+}
+
+function removePrompt(index) {
+  const cards = promptCards();
+  if (!cards.length) return;
+  const targetIndex = Math.min(Math.max(index, 0), cards.length - 1);
+  cards[targetIndex].remove();
+  const remainingCards = promptCards();
+  currentPrompt = Math.min(targetIndex, Math.max(remainingCards.length - 1, 0));
+  updatePrompts();
+  scheduleSessionSave();
 }
 
 function updateSessionControls() {
@@ -206,10 +217,10 @@ function createPromptCard(prompt, index) {
   }
 
   const menu = document.createElement("button");
-  menu.className = "prompt-menu";
+  menu.className = "prompt-menu prompt-delete";
   menu.type = "button";
-  menu.setAttribute("aria-label", `Options for prompt ${number.textContent}`);
-  menu.textContent = "···";
+  menu.setAttribute("aria-label", `Remove prompt ${number.textContent}`);
+  menu.textContent = "×";
   card.append(number, body, menu);
   return card;
 }
@@ -512,34 +523,21 @@ questionForm.addEventListener("submit", (event) => {
     questionInput.focus();
     return;
   }
-  const card = document.createElement("article");
-  card.className = "prompt-card";
-  card.dataset.promptType = "question";
-  card.dataset.promptText = text;
-  const number = document.createElement("span");
-  number.className = "prompt-number";
-  number.textContent = String(promptCards().length + 1).padStart(2, "0");
-  const body = document.createElement("div");
-  body.className = "prompt-body";
-  const type = document.createElement("span");
-  type.className = "prompt-type";
-  const dot = document.createElement("span");
-  dot.className = "type-dot question-dot";
-  type.append(dot, document.createTextNode(" QUESTION"));
-  const question = document.createElement("p");
-  question.textContent = text;
-  body.append(type, question);
-  const menu = document.createElement("button");
-  menu.className = "prompt-menu";
-  menu.type = "button";
-  menu.setAttribute("aria-label", `Options for prompt ${number.textContent}`);
-  menu.textContent = "···";
-  card.append(number, body, menu);
+  const card = createPromptCard({ type: "question", text }, promptCards().length);
   promptList.append(card);
   currentPrompt = promptCards().length - 1;
   updatePrompts();
   questionDialog.close();
   scheduleSessionSave();
+});
+
+promptList.addEventListener("click", (event) => {
+  const button = event.target.closest(".prompt-delete");
+  if (!button) return;
+  const card = button.closest(".prompt-card");
+  if (!card) return;
+  const index = promptCards().indexOf(card);
+  if (index >= 0) removePrompt(index);
 });
 
 previousButton.addEventListener("click", () => {

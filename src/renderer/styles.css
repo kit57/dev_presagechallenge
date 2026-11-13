@@ -194,6 +194,8 @@ h1 { margin-bottom: 5px; font-family: Manrope, sans-serif; font-size: clamp(24px
 .media-dot { background: #a494c3; }
 .prompt-body > p { margin: 6px 0 0; color: #3e4a44; font-size: 10px; line-height: 1.5; }
 .prompt-menu { align-self: flex-start; padding: 0 1px; border: 0; background: none; color: #99a29c; cursor: pointer; font-size: 16px; line-height: 1; }
+.prompt-menu.prompt-delete { width: 18px; height: 18px; border: 1px solid transparent; border-radius: 50%; color: #8e9a93; font-size: 13px; font-weight: 600; }
+.prompt-menu.prompt-delete:hover { border-color: #d6e1d9; background: #fff; color: #e2685a; }
 .media-preview { display: flex; min-height: 34px; align-items: center; gap: 7px; margin-top: 8px; padding: 5px 8px; border: 1px dashed #dfe5e0; border-radius: 4px; color: #929d95; font-size: 8px; }
 .media-preview > span { color: #9e91ba; font-size: 15px; }
 .media-preview img, .media-preview video { width: 43px; height: 28px; border-radius: 3px; object-fit: cover; }
