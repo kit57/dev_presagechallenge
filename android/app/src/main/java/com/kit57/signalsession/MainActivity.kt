@@ -488,9 +488,13 @@ class MainActivity : ComponentActivity() {
             return
         }
         try {
-            val promptArray = JSONArray(storedPrompts ?: "[]")
-            prompts = MutableList(promptArray.length()) { index -> promptArray.getString(index) }
-            if (prompts.isEmpty()) prompts = starterPrompts.toMutableList()
+            // A saved empty list is the user's choice; starters are only for brand-new sessions.
+            prompts = if (storedPrompts == null) {
+                starterPrompts.toMutableList()
+            } else {
+                val promptArray = JSONArray(storedPrompts)
+                MutableList(promptArray.length()) { index -> promptArray.getString(index) }
+            }
             loadingSavedSession = true
             notesInput.setText(storedNotes.orEmpty())
             renderPrompts()

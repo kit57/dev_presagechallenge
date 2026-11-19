@@ -43,7 +43,8 @@ let sdk = null;
 let sdkStartTask = null;
 let consentGranted = false;
 let currentPrompt = 0;
-let mediaObjectUrl = null;
+const MAX_PROMPTS = 50;
+const mediaObjectUrls = new WeakMap();
 let saveTimer = null;
 let saveQueue = Promise.resolve();
 let deletingSavedCopy = false;
@@ -54,6 +55,7 @@ const promptCards = () => [...promptList.querySelectorAll(".prompt-card")];
 function updatePrompts() {
   const cards = promptCards();
   currentPrompt = Math.min(Math.max(currentPrompt, 0), Math.max(cards.length - 1, 0));
+  renumberPrompts();
   cards.forEach((card, index) => {
     card.classList.toggle("active-prompt", index === currentPrompt);
   });
@@ -66,10 +68,25 @@ function updatePrompts() {
   nextButton.disabled = cards.length < 2 || currentPrompt >= cards.length - 1;
 }
 
+function revokeCardMedia(card) {
+  const url = mediaObjectUrls.get(card);
+  if (url) URL.revokeObjectURL(url);
+  mediaObjectUrls.delete(card);
+}
+
+function renumberPrompts() {
+  promptCards().forEach((card, index) => {
+    const number = String(index + 1).padStart(2, "0");
+    card.querySelector(".prompt-number").textContent = number;
+    card.querySelector(".prompt-delete").setAttribute("aria-label", `Remove prompt ${number}`);
+  });
+}
+
 function removePrompt(index) {
   const cards = promptCards();
   if (!cards.length) return;
   const targetIndex = Math.min(Math.max(index, 0), cards.length - 1);
+  revokeCardMedia(cards[targetIndex]);
   cards[targetIndex].remove();
   const remainingCards = promptCards();
   currentPrompt = Math.min(targetIndex, Math.max(remainingCards.length - 1, 0));
@@ -207,12 +224,11 @@ function createPromptCard(prompt, index) {
   if (prompt.type === "media") {
     const preview = document.createElement("div");
     preview.className = "media-preview";
-    preview.id = "media-preview";
     const previewIcon = document.createElement("span");
     previewIcon.setAttribute("aria-hidden", "true");
     previewIcon.textContent = "▧";
-    preview.append(previewIcon, document.createTextNode(" Re-select media; files aren't saved"));
-    text.id = "media-prompt-label";
+    preview.append(previewIcon, document.createTextNode(" Select this prompt, then use “Add media” (files aren't saved)"));
+    text.classList.add("media-prompt-label");
     body.append(preview);
   }
 
@@ -227,6 +243,7 @@ function createPromptCard(prompt, index) {
 
 function restoreSession(session) {
   notesInput.value = session.notes;
+  promptCards().forEach(revokeCardMedia);
   promptList.replaceChildren(...session.prompts.map(createPromptCard));
   currentPrompt = 0;
   updatePrompts();
@@ -458,11 +475,12 @@ document.querySelector("#consent-cancel").addEventListener("click", () => consen
 
 consentAccept.addEventListener("click", async () => {
   if (!consentAgreement.checked) return;
-  const consentWasAlreadyGranted = consentGranted;
+  consentDialog.close();
+  // Re-reviewing existing consent only acknowledges it; it must not restart the camera.
+  if (consentGranted) return;
   consentGranted = true;
   updateConsentStatus();
-  consentDialog.close();
-  if (!consentWasAlreadyGranted) await loadOrCreateSession();
+  await loadOrCreateSession();
   await startSmartSpectra();
 });
 
@@ -510,6 +528,10 @@ deleteSessionButton.addEventListener("click", async () => {
 });
 
 document.querySelector("#add-question").addEventListener("click", () => {
+  if (promptCards().length >= MAX_PROMPTS) {
+    currentPromptLabel.textContent = `A session can contain up to ${MAX_PROMPTS} prompts.`;
+    return;
+  }
   questionInput.value = "";
   questionDialog.showModal();
   questionInput.focus();
@@ -550,26 +572,45 @@ nextButton.addEventListener("click", () => {
   updatePrompts();
 });
 
+function mediaTargetCard() {
+  const cards = promptCards();
+  const active = cards[currentPrompt];
+  if (active?.dataset.promptType === "media") return active;
+  if (cards.length >= MAX_PROMPTS) return null;
+  const card = createPromptCard({ type: "media", text: "Show a picture or short video" }, cards.length);
+  promptList.append(card);
+  currentPrompt = cards.length;
+  scheduleSessionSave();
+  return card;
+}
+
 mediaUpload.addEventListener("change", () => {
   const file = mediaUpload.files?.[0];
+  mediaUpload.value = "";
   if (!file) return;
-  if (mediaObjectUrl) URL.revokeObjectURL(mediaObjectUrl);
-  mediaObjectUrl = URL.createObjectURL(file);
+  const card = mediaTargetCard();
+  if (!card) {
+    currentPromptLabel.textContent = `A session can contain up to ${MAX_PROMPTS} prompts.`;
+    return;
+  }
+  const previousUrl = mediaObjectUrls.get(card);
+  if (previousUrl) URL.revokeObjectURL(previousUrl);
+  const objectUrl = URL.createObjectURL(file);
+  mediaObjectUrls.set(card, objectUrl);
+
   const isVideo = file.type.startsWith("video/");
   const preview = document.createElement(isVideo ? "video" : "img");
-  preview.src = mediaObjectUrl;
+  preview.src = objectUrl;
   preview.alt = isVideo ? "Selected video stimulus preview" : "Selected image stimulus preview";
   if (isVideo) {
     preview.muted = true;
     preview.playsInline = true;
     preview.controls = true;
   }
-  const activeMediaPreview = document.querySelector("#media-preview");
-  const activeMediaLabel = document.querySelector("#media-prompt-label");
-  if (!activeMediaPreview || !activeMediaLabel) return;
-  activeMediaPreview.replaceChildren(preview);
-  activeMediaPreview.classList.add("has-media");
-  activeMediaLabel.textContent = file.name;
+  const mediaPreview = card.querySelector(".media-preview");
+  mediaPreview.replaceChildren(preview);
+  mediaPreview.classList.add("has-media");
+  card.querySelector(".media-prompt-label").textContent = file.name;
   updatePrompts();
 });
 
@@ -578,7 +619,7 @@ document.querySelector(".dismiss-notice").addEventListener("click", () => {
 });
 
 window.addEventListener("beforeunload", () => {
-  if (mediaObjectUrl) URL.revokeObjectURL(mediaObjectUrl);
+  promptCards().forEach(revokeCardMedia);
   if (cameraStream) cameraStream.getTracks().forEach((track) => track.stop());
 });
 

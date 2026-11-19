@@ -16,6 +16,7 @@ MAX_REQUEST_BYTES = 64 * 1024
 MAX_NOTES_LENGTH = 5_000
 MAX_PROMPTS = 50
 MAX_PROMPT_LENGTH = 240
+ALLOWED_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 
 def utc_now() -> datetime:
@@ -155,7 +156,21 @@ def make_handler(store: SessionStore) -> type[SimpleHTTPRequestHandler]:
             except (json.JSONDecodeError, UnicodeDecodeError) as error:
                 raise ValueError("Request body must contain valid JSON.") from error
 
+        def _host_allowed(self) -> bool:
+            # Reject DNS-rebinding requests: only loopback host names may reach the app.
+            host = (self.headers.get("Host") or "").strip().lower()
+            if host.startswith("["):
+                name = host[1 : host.find("]")] if "]" in host else host
+            else:
+                name = host.rsplit(":", 1)[0]
+            if name in ALLOWED_HOSTS:
+                return True
+            self._send_json(403, {"error": "Host not allowed."})
+            return False
+
         def do_GET(self) -> None:
+            if not self._host_allowed():
+                return
             path = urlsplit(self.path).path
             if path == "/api/health":
                 self._send_json(200, {"ok": True})
@@ -167,6 +182,8 @@ def make_handler(store: SessionStore) -> type[SimpleHTTPRequestHandler]:
                 super().do_GET()
 
         def do_PUT(self) -> None:
+            if not self._host_allowed():
+                return
             if urlsplit(self.path).path != "/api/session":
                 self._send_json(404, {"error": "API route not found."})
                 return
@@ -181,6 +198,8 @@ def make_handler(store: SessionStore) -> type[SimpleHTTPRequestHandler]:
             self._send_json(200, {"session": session})
 
         def do_DELETE(self) -> None:
+            if not self._host_allowed():
+                return
             if urlsplit(self.path).path != "/api/session":
                 self._send_json(404, {"error": "API route not found."})
                 return

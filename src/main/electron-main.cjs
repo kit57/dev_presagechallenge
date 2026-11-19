@@ -40,8 +40,9 @@ async function waitForPythonServer() {
       const response = await fetch(`${APP_URL}/api/health`);
       if (response.ok) return;
     } catch {
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      // Server not listening yet; retry below.
     }
+    await new Promise((resolve) => setTimeout(resolve, 200));
   }
   throw new Error(`Python server did not become ready at ${APP_URL}.`);
 }

@@ -142,6 +142,15 @@ class SessionApiTests(unittest.TestCase):
             (404, {"error": "API route not found."}),
         )
 
+    def test_rejects_non_loopback_host_header(self) -> None:
+        for method in ("GET", "PUT", "DELETE"):
+            data = b"{}" if method == "PUT" else None
+            status, body = self.request(method, "/api/session", data, {"Host": "evil.example:8765"})
+            self.assertEqual(status, 403, method)
+            self.assertEqual(json.loads(body), {"error": "Host not allowed."})
+        status, _ = self.request("GET", "/api/health", headers={"Host": "localhost:8765"})
+        self.assertEqual(status, 200)
+
     def test_expires_saved_session(self) -> None:
         status, _ = self.request_json(
             "PUT", "/api/session", {"notes": "", "prompts": [{"type": "media", "text": "Show media"}]}

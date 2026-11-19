@@ -29,12 +29,6 @@
           <a class="nav-item active" href="#session" aria-current="page">
             <span class="nav-icon" aria-hidden="true">◉</span> Live session
           </a>
-          <a class="nav-item" href="#protocol">
-            <span class="nav-icon" aria-hidden="true">☷</span> Protocol
-          </a>
-          <a class="nav-item" href="#sessions">
-            <span class="nav-icon" aria-hidden="true">◷</span> Past sessions
-          </a>
         </nav>
 
         <div class="sidebar-bottom">
@@ -43,11 +37,6 @@
             <strong>People first</strong>
             <p>Explain what happens before camera access. The participant can decline or stop at any time.</p>
           </div>
-          <button class="profile-button" type="button" aria-label="Workspace profile">
-            <span class="avatar">S</span>
-            <span class="profile-copy"><strong>Studio workspace</strong><small>Local prototype</small></span>
-            <span class="more" aria-hidden="true">···</span>
-          </button>
         </div>
       </aside>
 
@@ -56,14 +45,13 @@
           <div class="breadcrumb"><span>Workspace</span><span class="slash">/</span><strong>Live session</strong></div>
           <div class="topbar-right">
             <span class="prototype-pill"><span></span> PROTOTYPE</span>
-            <button class="icon-button" type="button" aria-label="Help and information">?</button>
           </div>
         </header>
 
         <div class="page-content">
           <section class="page-heading">
             <div>
-              <div class="eyebrow"><span class="eyebrow-dot"></span> INTERVIEW ROOM <span class="eyebrow-divider">/</span> SESSION 001</div>
+              <div class="eyebrow"><span class="eyebrow-dot"></span> INTERVIEW ROOM</div>
               <h1>A thoughtful conversation.</h1>
               <p class="page-subtitle">A structured session for questions, media prompts, and optional camera signals.</p>
             </div>
@@ -132,13 +120,7 @@
                   </div>
                   <span id="sdk-status" class="sample-badge"><span></span> SDK NOT STARTED</span>
                 </div>
-                <div class="metrics-grid">
-                  <article class="metric-card">
-                    <div class="metric-label"><span class="metric-symbol heart">♡</span> PULSE RATE <span class="metric-help" title="Pulse estimates are not indicators of honesty." aria-label="Pulse estimates are not indicators of honesty.">i</span></div>
-                    <div class="metric-value">— <span>not requested</span></div>
-                    <div class="metric-foot">This starter requests breathing only.</div>
-                    <div class="metric-empty-space"></div>
-                  </article>
+                <div class="metrics-grid metrics-grid-single">
                   <article class="metric-card">
                     <div class="metric-label"><span class="metric-symbol breath">≋</span> BREATHING <span class="metric-help" title="Breathing rate varies with activity and other factors." aria-label="Breathing rate varies with activity and other factors.">i</span></div>
                     <div class="metric-value"><span id="breathing-number">—</span> <span>breaths / min</span></div>
@@ -177,7 +159,7 @@
                     <button class="prompt-menu prompt-delete" type="button" aria-label="Remove prompt 2">×</button>
                   </article>
                   <article class="prompt-card media-prompt" data-prompt-type="media" data-prompt-text="Show a picture or short video">
-                    <span class="prompt-number">03</span><div class="prompt-body"><span class="prompt-type"><span class="type-dot media-dot"></span> MEDIA STIMULUS</span><p id="media-prompt-label">Show a picture or short video</p><div id="media-preview" class="media-preview"><span aria-hidden="true">▧</span> Add an image or video</div></div>
+                    <span class="prompt-number">03</span><div class="prompt-body"><span class="prompt-type"><span class="type-dot media-dot"></span> MEDIA STIMULUS</span><p class="media-prompt-label">Show a picture or short video</p><div class="media-preview"><span aria-hidden="true">▧</span> Select this prompt, then use “Add media”</div></div>
                     <button class="prompt-menu prompt-delete" type="button" aria-label="Remove prompt 3">×</button>
                   </article>
                 </div>
@@ -223,19 +205,37 @@
       <div class="disclosure-list">
         <section class="disclosure-item">
           <span class="disclosure-icon camera-disclosure-icon" aria-hidden="true">◉</span>
-          <div><h3>Camera access</h3><p>Agreeing starts SmartSpectra and requests a live, muted camera stream. No microphone is requested. SmartSpectra processes the live frames on this computer; this app does not record video or send it to the Python session backend. You can stop the measurement or withdraw consent at any time. Electron and the operating system may show a camera permission prompt.</p></div>
+          <div><h3>Camera access</h3><ul>
+            <li>Agreeing starts SmartSpectra with a live camera stream. No microphone.</li>
+            <li>Frames are processed on this computer. Video is never recorded or sent to the session backend.</li>
+            <li>Stop the measurement or withdraw consent at any time. Your OS may also ask for camera permission.</li>
+          </ul></div>
         </section>
         <section class="disclosure-item">
           <span class="disclosure-icon signal-disclosure-icon" aria-hidden="true">⌁</span>
-          <div><h3>What is measured</h3><p>This app requests only SmartSpectra breathing-rate metrics and displays the live estimate, confidence, and stability when available. Early readings may be unavailable until a full measurement window completes. Pulse, HRV, and facial-expression or sentiment analysis are not requested. These wellness signals are not evidence of honesty and must not be used for diagnosis, treatment, or medical decisions.</p></div>
+          <div><h3>What is measured</h3><ul>
+            <li>Breathing rate only, with confidence and stability when available. The first reading needs a full measurement window.</li>
+            <li>Pulse, HRV, facial expressions and sentiment are not requested.</li>
+            <li>These signals are not evidence of honesty and must not be used for diagnosis, treatment or medical decisions.</li>
+          </ul></div>
         </section>
         <section class="disclosure-item">
           <span class="disclosure-icon data-disclosure-icon" aria-hidden="true">▤</span>
-          <div><h3>Storage, sharing &amp; deletion</h3><p>After you agree, this app saves one session's question prompts and notes in <code>~/.signal-session/sessions.sqlite3</code> on this computer under the account running the server. It expires 30 days after first save; edits do not extend that period. Expired data is physically removed the next time the local server starts or the session API is used, so its file can remain on disk longer if the server is not run. Use “Delete saved copy” to remove it sooner; withdrawing consent stops SmartSpectra and attempts to delete it. Camera frames and live breathing metrics are not written to the session database; uploaded prompt media is previewed locally and is not saved by this app. The local backend binds to this computer only and does not share session notes or prompts. The SDK uses your API key to authenticate with Presage; no optional AI service is used. Its terminal shows request paths/status, not note or prompt contents.</p></div>
+          <div><h3>Storage, sharing &amp; deletion</h3><ul>
+            <li>Saved: question prompts and notes only, in <code>~/.signal-session/sessions.sqlite3</code> on this computer.</li>
+            <li>Not saved: camera frames, breathing values and selected media files.</li>
+            <li>Expires 30 days after first save (edits don’t extend it). Expired data is removed the next time the app runs.</li>
+            <li>“Delete saved copy” removes it now. Withdrawing consent stops SmartSpectra and deletes it.</li>
+            <li>The local backend only accepts connections from this computer and shares nothing. Its log shows request paths, not contents.</li>
+          </ul></div>
         </section>
         <section class="disclosure-item">
           <span class="disclosure-icon integration-disclosure-icon" aria-hidden="true">◇</span>
-          <div><h3>SDK telemetry &amp; AI</h3><p>SmartSpectra SDK telemetry is explicitly disabled in this app. The SDK makes a Presage authentication request when a measurement starts; the API key is stored only in your local <code>.env</code> file and is not saved with session notes. No optional AI service is used.</p></div>
+          <div><h3>SDK telemetry &amp; AI</h3><ul>
+            <li>SmartSpectra SDK telemetry is turned off.</li>
+            <li>When a measurement starts, the SDK sends one authentication request to Presage using the API key from your local <code>.env</code> file.</li>
+            <li>No AI service is used.</li>
+          </ul></div>
         </section>
       </div>
       <label class="agreement-label">
@@ -243,7 +243,7 @@
         <span class="agreement-check" aria-hidden="true"></span>
         <span>I am the participant, I am 18 or older, and I have read and voluntarily agree to SmartSpectra camera processing and local prompt/note storage described above.</span>
       </label>
-      <p class="consent-note">Only the participant may agree. Do not monitor anyone without their knowledge and consent. You can choose “Not now” without starting SmartSpectra. The saved copy expires after 30 days; physical removal happens on the next server run or API use. You can delete it sooner.</p>
+      <p class="consent-note">Only the participant may agree. Never monitor anyone without their knowledge and consent. “Not now” closes this without starting the camera.</p>
       <div class="dialog-actions consent-actions">
         <button id="withdraw-consent" class="withdraw-button" type="button" hidden>Withdraw consent</button>
         <button id="consent-cancel" class="button button-outline" type="button">Not now</button>
