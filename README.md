@@ -2,6 +2,16 @@
 
 A consent-first interview workspace with an Electron desktop app and a native Android app using Presage SmartSpectra to display a live breathing-rate signal. It is not a lie detector: breathing and other wellness signals do not establish truthfulness and must not be used for diagnosis, treatment, or medical decisions.
 
+## Screenshots
+
+The interview workspace before consent. The camera is off and no breathing estimate is shown until the participant agrees:
+
+![Signal Session desktop workspace with the camera preview, conversation prompts, live signal overview, and session notes](docs/screenshots/workspace.png)
+
+The consent dialog the participant reviews before SmartSpectra starts:
+
+![Camera and data consent dialog listing camera access, what is measured, storage and deletion, and SDK telemetry](docs/screenshots/consent.png)
+
 ## Requirements
 
 - Node.js 22.12 or newer
@@ -17,7 +27,7 @@ The SmartSpectra native runtime currently supports Windows x64, macOS arm64, and
 - `src/main/` — Electron main process and SDK preload bridge.
 - `backend/` — Python local API and its tests.
 - `android/` — native Android app and SmartSpectra integration.
-- `docs/` — archived prototype documentation.
+- `docs/` — screenshots and archived prototype documentation.
 
 ## Android app
 
